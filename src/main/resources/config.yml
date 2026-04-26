@@ -1,0 +1,80 @@
+schematic: "dark_auction.schem"
+
+trigger-hour: 12
+trigger-minute: 0
+
+cycles:
+  1:
+    start-day: 4
+    end-day: 6
+    auctions:
+      - name: "leilaodocas1"
+        npc-id: 1
+      - name: "leilaodocas2"
+        npc-id: 2
+      - name: "leilaodocas3"
+        npc-id: 3
+  2:
+    start-day: 15
+    end-day: 17
+    auctions:
+      - name: "leilaocentro1"
+        npc-id: 4
+      - name: "leilaocentro2"
+        npc-id: 5
+      - name: "leilaocentro3"
+        npc-id: 6
+  3:
+    start-day: 24
+    end-day: 26
+    auctions:
+      - name: "leilaodc1"
+        npc-id: 7
+      - name: "leilaodc2"
+        npc-id: 8
+      - name: "leilaodc3"
+        npc-id: 9
+
+discord:
+  enabled: false
+  webhook-url: ""
+  start-embed:
+    title: "🏴 Mercado Clandestino Aberto!"
+    description: "O mercado clandestino está funcionando!\nCorra antes que acabe o estoque."
+    color: 15158332
+    author:
+      name: "AusTV Network"
+      icon-url: ""
+    thumbnail-url: ""
+    image-url: ""
+    fields:
+      - name: "📅 Período"
+        value: "Dias {start_day} até {end_day}"
+        inline: true
+      - name: "⏰ Horário"
+        value: "A partir das 12:00"
+        inline: true
+      - name: "📍 Local"
+        value: "Coordenadas secretas no servidor"
+        inline: false
+    footer:
+      text: "AusTV Network • Mercado Clandestino"
+      icon-url: ""
+    timestamp: true
+  end-embed:
+    title: "🔒 Mercado Clandestino Encerrado"
+    description: "O mercado clandestino foi encerrado.\nAté o próximo ciclo!"
+    color: 3092790
+    author:
+      name: "AusTV Network"
+      icon-url: ""
+    thumbnail-url: ""
+    image-url: ""
+    fields:
+      - name: "📅 Próximo ciclo"
+        value: "Em breve..."
+        inline: true
+    footer:
+      text: "AusTV Network • Mercado Clandestino"
+      icon-url: ""
+    timestamp: true

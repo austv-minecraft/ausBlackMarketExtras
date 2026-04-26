@@ -6,10 +6,18 @@ plugins {
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://maven.enginehub.org/repo/")
+    maven("https://repo.citizensnpcs.co/")
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.+")
+    compileOnly(files("src/main/libs/AxDarkAuctions-1.8.0.jar"))
+    compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.3.0")
+    compileOnly("net.citizensnpcs:citizens-main:2.0.35-SNAPSHOT")
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.0")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 java {
@@ -17,10 +25,11 @@ java {
 }
 
 tasks {
+    test {
+        useJUnitPlatform()
+    }
+
     runServer {
-        // Configure the Minecraft version for our task.
-        // This is the only required configuration besides applying the plugin.
-        // Your plugin's jar (or shadowJar if present) will be used automatically.
         minecraftVersion("26.1.2")
         jvmArgs("-Xms2G", "-Xmx2G")
     }
