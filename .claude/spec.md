@@ -14,6 +14,7 @@ Plugin bridge para o `AxDarkAuctions` que automatiza o ciclo do Mercado Clandest
 - Restaurar a área (via backup) ao encerrar
 - Spawnar NPC do Citizens em cada local ao iniciar; remover ao encerrar
 - Enviar embed para Discord via webhook ao iniciar e ao encerrar
+- Registrar todo o ciclo e erros em arquivos de log diários (`logs/YYYY-MM-DD.log`)
 
 **Fora de escopo:**
 - Configuração de leilões no AxDarkAuctions (já existem)
@@ -76,9 +77,13 @@ plugin.ausBlackMarketingExtras
 │   └── NpcHandler.java                   ← spawn/despawn via Citizens API
 ├── discord/
 │   └── DiscordWebhook.java               ← HTTP POST via java.net.http.HttpClient
+├── logging/
+│   └── AusCycleLogger.java               ← escreve em logs/YYYY-MM-DD.log + console
 └── listener/
     └── DarkAuctionsLoadListener.java     ← ouve AxDarkAuctionsLoadEvent
 ```
+
+**Pasta de logs em runtime:** `plugins/ausBlackMarketingExtras/logs/YYYY-MM-DD.log`
 
 ---
 
@@ -266,7 +271,32 @@ discord:
 
 ---
 
-## 8. Critérios de Aceite
+## 8. AusCycleLogger — Detalhes
+
+**Pasta:** `plugins/ausBlackMarketingExtras/logs/`
+**Arquivo diário:** `YYYY-MM-DD.log` (criado automaticamente se não existir)
+**Formato de entrada:** `[HH:mm:ss] [LEVEL] mensagem`
+
+| Nível | Evento registrado |
+|---|---|
+| `INFO` | Plugin habilitado, dia verificado, ciclo identificado |
+| `INFO` | Agendamento criado (ex: `"Start agendado para 12:00 — ciclo 1"`) |
+| `INFO` | Schematic colada com sucesso por leilão |
+| `INFO` | NPC spawnado/removido com sucesso |
+| `INFO` | Leilão iniciado/encerrado com sucesso |
+| `INFO` | Webhook Discord enviado com sucesso |
+| `WARN` | `AxDarkAuctionsLoadEvent` disparou após horário configurado |
+| `WARN` | Webhook falhou (timeout/URL inválida) |
+| `ERROR` | Auction não encontrado pelo nome |
+| `ERROR` | NPC ID inválido |
+| `ERROR` | Falha no paste/restore da schematic |
+| `ERROR` | Exceção inesperada durante execução (stack trace incluído) |
+
+`AusCycleLogger` também repassa todas as entradas para o logger do Paper (visível no console e `logs/latest.log` do servidor).
+
+---
+
+## 9. Critérios de Aceite
 
 - [ ] Nos dias 4, 15 e 24 às 12:00 — os 3 leilões do ciclo correspondente iniciam simultaneamente
 - [ ] Nos dias 6, 17 e 26 às 12:00 — os 3 leilões do ciclo correspondente encerram simultaneamente
@@ -278,6 +308,9 @@ discord:
 - [ ] Placeholders `{start_day}`, `{end_day}`, `{cycle}`, `{auction_count}` são resolvidos no embed
 - [ ] Se `AxDarkAuctionsLoadEvent` disparar após o horário configurado, plugin loga aviso e não agenda
 - [ ] Campos vazios no embed (`image-url: ""`) são omitidos do payload JSON
+- [ ] Arquivo `logs/YYYY-MM-DD.log` é criado automaticamente a cada dia com entradas de ciclo e erros
+- [ ] Erros incluem stack trace no arquivo de log
+- [ ] Todas as entradas do logger aparecem também no console do servidor
 
 ---
 
