@@ -7,7 +7,7 @@ repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://maven.enginehub.org/repo/")
-    maven("https://repo.citizensnpcs.co/")
+    maven { name = "citizens-repo"; url = uri("https://maven.citizensnpcs.co/repo") }
 }
 
 dependencies {
