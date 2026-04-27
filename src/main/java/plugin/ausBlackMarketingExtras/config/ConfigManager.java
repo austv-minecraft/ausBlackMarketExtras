@@ -32,6 +32,11 @@ public final class ConfigManager {
                 int id = Integer.parseInt(key);
                 int startDay = cs.getInt("start-day");
                 int endDay = cs.getInt("end-day");
+                ConfigurationSection coord = cs.getConfigurationSection("coordinate");
+                String world = coord != null ? coord.getString("world", "world") : "world";
+                int x = coord != null ? coord.getInt("x", 0) : 0;
+                int y = coord != null ? coord.getInt("y", 64) : 64;
+                int z = coord != null ? coord.getInt("z", 0) : 0;
                 List<AuctionEntry> entries = new ArrayList<>();
                 for (Map<?, ?> map : cs.getMapList("auctions")) {
                     entries.add(new AuctionEntry(
@@ -39,7 +44,7 @@ public final class ConfigManager {
                         (int) map.get("npc-id")
                     ));
                 }
-                cycles.add(new CycleConfig(id, startDay, endDay, Collections.unmodifiableList(entries)));
+                cycles.add(new CycleConfig(id, startDay, endDay, world, x, y, z, Collections.unmodifiableList(entries)));
             }
         }
 

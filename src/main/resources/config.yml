@@ -7,6 +7,11 @@ cycles:
   1:
     start-day: 4
     end-day: 6
+    coordinate:
+      world: "world"
+      x: 0
+      y: 64
+      z: 0
     auctions:
       - name: "leilaodocas1"
         npc-id: 1
@@ -17,6 +22,11 @@ cycles:
   2:
     start-day: 15
     end-day: 17
+    coordinate:
+      world: "world"
+      x: 0
+      y: 64
+      z: 0
     auctions:
       - name: "leilaocentro1"
         npc-id: 4
@@ -27,6 +37,11 @@ cycles:
   3:
     start-day: 24
     end-day: 26
+    coordinate:
+      world: "world"
+      x: 0
+      y: 64
+      z: 0
     auctions:
       - name: "leilaodc1"
         npc-id: 7

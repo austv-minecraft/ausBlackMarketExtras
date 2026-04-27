@@ -2,7 +2,9 @@ package plugin.ausBlackMarketingExtras.auction;
 
 import com.artillexstudios.axdarkauctions.auctions.Auction;
 import com.artillexstudios.axdarkauctions.auctions.AuctionManager;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import plugin.ausBlackMarketingExtras.AusBlackMarketingExtras;
 import plugin.ausBlackMarketingExtras.config.ConfigManager;
 import plugin.ausBlackMarketingExtras.discord.DiscordWebhook;
@@ -23,7 +25,18 @@ public final class AuctionHandler {
         AusCycleLogger.info("=== START cycle " + cycle.id()
             + " (day " + cycle.startDay() + " → " + cycle.endDay() + ") ===");
 
+        World world = Bukkit.getWorld(cycle.world());
+        if (world == null) {
+            AusCycleLogger.error("World '" + cycle.world() + "' not found. Aborting cycle " + cycle.id() + ".");
+            return;
+        }
+
+        Location cycleLoc = new Location(world, cycle.x(), cycle.y(), cycle.z());
+        Location schematicLoc = cycleLoc.clone().add(0, -1, 0);
+
         File schematicFile = new File(plugin.getDataFolder(), "schematics/" + config.getSchematic());
+        File backupFile = new File(plugin.getDataFolder(), "schematics/backups/backup_" + cycle.id() + ".schem");
+        SchematicHandler.paste(schematicLoc, schematicFile, backupFile);
 
         for (AuctionEntry entry : cycle.auctions()) {
             Auction auction = AuctionManager.getAuctions().get(entry.name());
@@ -35,14 +48,7 @@ public final class AuctionHandler {
                 AusCycleLogger.warn("Auction '" + entry.name() + "' is already running. Skipping.");
                 continue;
             }
-
-            Location spawnLoc = auction.getSpawn();
-            Location pasteLoc = spawnLoc.clone().add(0, -1, 0);
-            File backupFile = new File(plugin.getDataFolder(),
-                "schematics/backups/backup_" + cycle.id() + "_" + entry.name() + ".schem");
-
-            SchematicHandler.paste(pasteLoc, schematicFile, backupFile);
-            NpcHandler.spawn(entry.npcId(), spawnLoc);
+            NpcHandler.spawn(entry.npcId(), cycleLoc);
             auction.start();
             AusCycleLogger.info("Auction '" + entry.name() + "' started.");
         }
@@ -63,23 +69,28 @@ public final class AuctionHandler {
     public static void stopCycle(AusBlackMarketingExtras plugin, ConfigManager config, CycleConfig cycle) {
         AusCycleLogger.info("=== STOP cycle " + cycle.id() + " (day " + cycle.endDay() + ") ===");
 
+        World world = Bukkit.getWorld(cycle.world());
+        if (world == null) {
+            AusCycleLogger.error("World '" + cycle.world() + "' not found. Aborting stop of cycle " + cycle.id() + ".");
+            return;
+        }
+
+        Location cycleLoc = new Location(world, cycle.x(), cycle.y(), cycle.z());
+        Location schematicLoc = cycleLoc.clone().add(0, -1, 0);
+
         for (AuctionEntry entry : cycle.auctions()) {
             Auction auction = AuctionManager.getAuctions().get(entry.name());
             if (auction == null) {
                 AusCycleLogger.error("Auction '" + entry.name() + "' not found in AuctionManager. Skipping.");
                 continue;
             }
-
-            Location spawnLoc = auction.getSpawn();
-            Location pasteLoc = spawnLoc.clone().add(0, -1, 0);
-            File backupFile = new File(plugin.getDataFolder(),
-                "schematics/backups/backup_" + cycle.id() + "_" + entry.name() + ".schem");
-
             auction.stop();
             NpcHandler.despawn(entry.npcId());
-            SchematicHandler.restore(pasteLoc, backupFile);
-            AusCycleLogger.info("Auction '" + entry.name() + "' stopped and area restored.");
+            AusCycleLogger.info("Auction '" + entry.name() + "' stopped.");
         }
+
+        File backupFile = new File(plugin.getDataFolder(), "schematics/backups/backup_" + cycle.id() + ".schem");
+        SchematicHandler.restore(schematicLoc, backupFile);
 
         if (config.isDiscordEnabled() && !config.getWebhookUrl().isBlank()) {
             Map<String, String> ph = Map.of(
