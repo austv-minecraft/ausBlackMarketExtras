@@ -4,7 +4,19 @@ version: '${version}'
 main: plugin.ausBlackMarketingExtras.AusBlackMarketingExtras
 bootstrapper: plugin.ausBlackMarketingExtras.AusBlackMarketingExtrasBootstrap
 loader: plugin.ausBlackMarketingExtras.AusBlackMarketingExtrasLoader
-api-version: '26.1.2'
+api-version: '1.21'
 load: POSTWORLD
 
 authors: [ ZzPowerTechzZ ]
+
+dependencies:
+  server:
+    AxDarkAuctions:
+      load: BEFORE
+      required: true
+    WorldEdit:
+      load: BEFORE
+      required: true
+    Citizens:
+      load: BEFORE
+      required: true
