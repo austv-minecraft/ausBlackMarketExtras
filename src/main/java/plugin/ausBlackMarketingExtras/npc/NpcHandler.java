@@ -4,6 +4,7 @@ import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import plugin.ausBlackMarketingExtras.logging.AusCycleLogger;
 
 public final class NpcHandler {
@@ -17,7 +18,11 @@ public final class NpcHandler {
             return;
         }
         try {
-            npc.spawn(location);
+            if (npc.isSpawned()) {
+                npc.teleport(location, PlayerTeleportEvent.TeleportCause.PLUGIN);
+            } else {
+                npc.spawn(location);
+            }
             AusCycleLogger.info("NPC id=" + npcId + " spawned at " + formatLoc(location) + ".");
         } catch (Exception e) {
             AusCycleLogger.error("Failed to spawn NPC id=" + npcId + ": " + e.getMessage(), e);
