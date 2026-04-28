@@ -18,6 +18,19 @@ public final class ConfigManager {
     private String webhookUrl;
     private EmbedConfig startEmbed;
     private EmbedConfig endEmbed;
+    private boolean broadcastEnabled;
+    private String broadcastStartMessage;
+    private String broadcastEndMessage;
+    private String broadcastStartTitle;
+    private String broadcastStartSubtitle;
+    private String broadcastEndTitle;
+    private String broadcastEndSubtitle;
+    private int titleFadeIn;
+    private int titleStay;
+    private int titleFadeOut;
+    private String broadcastSound;
+    private float soundVolume;
+    private float soundPitch;
 
     public ConfigManager(FileConfiguration config) {
         schematic = config.getString("schematic", "dark_auction.schem");
@@ -56,6 +69,20 @@ public final class ConfigManager {
 
         ConfigurationSection endSection = config.getConfigurationSection("discord.end-embed");
         endEmbed = endSection != null ? EmbedConfig.fromSection(endSection) : EmbedConfig.empty();
+
+        broadcastEnabled = config.getBoolean("broadcast.enabled", true);
+        broadcastStartMessage = config.getString("broadcast.start-message", "");
+        broadcastEndMessage = config.getString("broadcast.end-message", "");
+        broadcastStartTitle = config.getString("broadcast.start-title", "");
+        broadcastStartSubtitle = config.getString("broadcast.start-subtitle", "");
+        broadcastEndTitle = config.getString("broadcast.end-title", "");
+        broadcastEndSubtitle = config.getString("broadcast.end-subtitle", "");
+        titleFadeIn = config.getInt("broadcast.title-fade-in", 10);
+        titleStay = config.getInt("broadcast.title-stay", 60);
+        titleFadeOut = config.getInt("broadcast.title-fade-out", 20);
+        broadcastSound = config.getString("broadcast.sound", "");
+        soundVolume = (float) config.getDouble("broadcast.sound-volume", 1.0);
+        soundPitch = (float) config.getDouble("broadcast.sound-pitch", 1.0);
     }
 
     public List<CycleConfig> getCycles() {
@@ -69,6 +96,20 @@ public final class ConfigManager {
     public String getWebhookUrl() { return webhookUrl; }
     public EmbedConfig getStartEmbed() { return startEmbed; }
     public EmbedConfig getEndEmbed() { return endEmbed; }
+
+    public boolean isBroadcastEnabled() { return broadcastEnabled; }
+    public String getBroadcastStartMessage() { return broadcastStartMessage; }
+    public String getBroadcastEndMessage() { return broadcastEndMessage; }
+    public String getBroadcastStartTitle() { return broadcastStartTitle; }
+    public String getBroadcastStartSubtitle() { return broadcastStartSubtitle; }
+    public String getBroadcastEndTitle() { return broadcastEndTitle; }
+    public String getBroadcastEndSubtitle() { return broadcastEndSubtitle; }
+    public int getTitleFadeIn() { return titleFadeIn; }
+    public int getTitleStay() { return titleStay; }
+    public int getTitleFadeOut() { return titleFadeOut; }
+    public String getBroadcastSound() { return broadcastSound; }
+    public float getSoundVolume() { return soundVolume; }
+    public float getSoundPitch() { return soundPitch; }
 
     public Optional<CycleConfig> findCycleByStartDay(int day) {
         return cycles.stream().filter(c -> c.startDay() == day).findFirst();
