@@ -74,7 +74,7 @@ public final class SchematicHandler {
         }
 
         backupFile.getParentFile().mkdirs();
-        try (ClipboardWriter writer = BuiltInClipboardFormat.SPONGE_SCHEMATIC
+        try (ClipboardWriter writer = BuiltInClipboardFormat.SPONGE_V3_SCHEMATIC
                 .getWriter(new FileOutputStream(backupFile))) {
             writer.write(clipboard);
         }
