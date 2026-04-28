@@ -20,3 +20,23 @@ dependencies:
     Citizens:
       load: BEFORE
       required: true
+
+commands:
+  ausblack:
+    description: Comandos administrativos do ausBlackMarketingExtras
+    usage: /ausblack <ciclo start <id>|ciclo end <id>|reload>
+    permission: ausblack.admin
+
+permissions:
+  ausblack.admin:
+    description: Acesso a todos os comandos ausblack
+    default: op
+    children:
+      ausblack.command.ciclo: true
+      ausblack.command.reload: true
+  ausblack.command.ciclo:
+    description: Permissao para disparar ciclos manualmente
+    default: false
+  ausblack.command.reload:
+    description: Permissao para recarregar o plugin
+    default: false
