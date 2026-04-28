@@ -10,7 +10,7 @@ Plugin bridge para o `AxDarkAuctions` que automatiza o ciclo do Mercado Clandest
 **Responsabilidades:**
 - Iniciar 3 leilões simultâneos nos dias configurados às 12:00
 - Encerrar os 3 leilões simultâneos nos dias configurados às 12:00
-- Colar uma schematic do WorldEdit 1 bloco abaixo do spawn de cada leilão ao iniciar
+- Colar uma schematic do WorldEdit 1 bloco abaixo da coordenada configurada por ciclo ao iniciar
 - Restaurar a área (via backup) ao encerrar
 - Spawnar NPC do Citizens em cada local ao iniciar; remover ao encerrar
 - Enviar embed para Discord via webhook ao iniciar e ao encerrar
@@ -30,7 +30,7 @@ Plugin bridge para o `AxDarkAuctions` que automatiza o ciclo do Mercado Clandest
 | `AxDarkAuctions 1.8.0` | API de leilões | `compileOnly` (JAR local) |
 | `WorldEdit 7.3.0` | Paste/restore de schematics | `compileOnly` (Maven) |
 | `Citizens 2.0.35` | Spawn/despawn de NPCs | `compileOnly` (Maven) |
-| `Paper API 26.1.2` | Base do plugin | `compileOnly` (Maven) |
+| `Paper API 1.21.4` | Base do plugin | `compileOnly` (Maven) |
 
 **`paper-plugin.yml` — server dependencies:**
 ```yaml
@@ -49,10 +49,14 @@ dependencies:
 
 **`build.gradle.kts`:**
 ```kotlin
-compileOnly("io.papermc.paper:paper-api:26.1.2.build.+")
+compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
 compileOnly(files("src/main/libs/AxDarkAuctions-1.8.0.jar"))
 compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.3.0")
-compileOnly("net.citizensnpcs:citizens-main:2.0.35")
+compileOnly("net.citizensnpcs:citizens-main:2.0.35-SNAPSHOT") { isTransitive = false }
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
 ```
 
 ---
@@ -68,7 +72,8 @@ plugin.ausBlackMarketingExtras
 │   ├── CycleConfig.java                  ← dados de um ciclo (startDay, endDay, auctions)
 │   └── AuctionEntry.java                 ← par (auctionName, npcId)
 ├── schedule/
-│   └── AuctionScheduler.java             ← calcula delay → agenda BukkitRunnable
+│   ├── AuctionScheduler.java             ← calcula delay → agenda BukkitRunnable
+│   └── TicksUtil.java                    ← converte segundos em ticks (20×)
 ├── auction/
 │   └── AuctionHandler.java               ← start/stop via AuctionManager API
 ├── schematic/
@@ -105,31 +110,36 @@ onEnable()
 
 **Edge case:** se `AxDarkAuctionsLoadEvent` disparar após `trigger-hour:trigger-minute`, o plugin loga um aviso e não agenda (dia já passou).
 
-### Início do ciclo (start-day às 12:00) — para cada `AuctionEntry`:
+### Início do ciclo (start-day às 12:00):
 
 ```
-1. AuctionManager.getAuctions().get(entry.name())     → Auction
-   └─► null ou isRunning() == true → log warn + skip entry
-2. auction.getSpawn()                                  → Location spawnLoc
-3. SchematicHandler.paste(spawnLoc.add(0,-1,0))
-   ├─► captura região e salva backup_{cycleId}_{auctionName}.schem
+1. Obtém coordenada do ciclo do config.yml (world, x, y, z) → cycleLoc
+   └─► world null → log error + abort
+2. SchematicHandler.paste(cycleLoc.add(0,-1,0))       ← UMA VEZ por ciclo
+   ├─► captura região e salva backup_{cycleId}.schem
    └─► cola schematic configurada
-4. NpcHandler.spawn(entry.npcId(), spawnLoc)
-   └─► CitizensAPI.getNPCRegistry().getById(id).spawn(spawnLoc)
-5. auction.start()
+3. Para cada AuctionEntry:
+   a. AuctionManager.getAuctions().get(entry.name())  → Auction
+      └─► null ou isRunning() == true → log warn + skip entry
+   b. NpcHandler.spawn(entry.npcId(), cycleLoc)
+      └─► CitizensAPI.getNPCRegistry().getById(id).spawn(cycleLoc)
+   c. auction.start()
 ```
 Após processar todos os 3: `DiscordWebhook.send(startEmbed)`
 
-### Encerramento do ciclo (end-day às 12:00) — para cada `AuctionEntry`:
+### Encerramento do ciclo (end-day às 12:00):
 
 ```
-1. AuctionManager.getAuctions().get(entry.name())     → Auction
-2. auction.getSpawn()                                  → Location spawnLoc
-3. auction.stop()
-4. NpcHandler.despawn(entry.npcId())
-   └─► CitizensAPI.getNPCRegistry().getById(id).despawn()
-5. SchematicHandler.restore(spawnLoc.below(), cycleName, entryName)
-   ├─► cola backup_{cycleName}_{entryName}.schem
+1. Obtém coordenada do ciclo do config.yml (world, x, y, z) → cycleLoc
+   └─► world null → log error + abort
+2. Para cada AuctionEntry:
+   a. AuctionManager.getAuctions().get(entry.name())  → Auction
+      └─► null → log error + skip entry
+   b. auction.stop()
+   c. NpcHandler.despawn(entry.npcId())
+      └─► CitizensAPI.getNPCRegistry().getById(id).despawn()
+3. SchematicHandler.restore(cycleLoc.add(0,-1,0))     ← UMA VEZ por ciclo
+   ├─► cola backup_{cycleId}.schem
    └─► deleta arquivo de backup
 ```
 Após processar todos os 3: `DiscordWebhook.send(endEmbed)`
@@ -142,14 +152,13 @@ Após processar todos os 3: `DiscordWebhook.send(endEmbed)`
 
 **Pasta de backups (gerada em runtime):** `plugins/ausBlackMarketingExtras/schematics/backups/`
 
-**Paste:**
+**Paste (uma vez por ciclo):**
 1. Carrega schematic via `ClipboardFormats.findByFile(file)`
-2. Cria `EditSession` com WorldEdit
-3. Cola no `BlockVector3` correspondente a `location.below()`
-4. Antes do paste, copia a região (bounding box da schematic) para arquivo de backup
+2. Antes do paste, copia a região (bounding box da schematic) para `backup_{cycleId}.schem`
+3. Cria `EditSession` com WorldEdit e cola no `BlockVector3` da coordenada do ciclo (y-1)
 
-**Restore:**
-1. Carrega `backups/backup_{cycleName}_{entryName}.schem`
+**Restore (uma vez por ciclo):**
+1. Carrega `backups/backup_{cycleId}.schem`
 2. Cola sobre a área via `EditSession`
 3. Deleta o arquivo de backup
 
@@ -195,6 +204,11 @@ cycles:
   1:
     start-day: 4
     end-day: 6
+    coordinate:
+      world: "world"
+      x: 0
+      y: 64
+      z: 0
     auctions:
       - name: "leilaodocas1"
         npc-id: 1
@@ -205,6 +219,11 @@ cycles:
   2:
     start-day: 15
     end-day: 17
+    coordinate:
+      world: "world"
+      x: 0
+      y: 64
+      z: 0
     auctions:
       - name: "leilaocentro1"
         npc-id: 4
@@ -215,6 +234,11 @@ cycles:
   3:
     start-day: 24
     end-day: 26
+    coordinate:
+      world: "world"
+      x: 0
+      y: 64
+      z: 0
     auctions:
       - name: "leilaodc1"
         npc-id: 7
@@ -300,10 +324,10 @@ discord:
 
 - [ ] Nos dias 4, 15 e 24 às 12:00 — os 3 leilões do ciclo correspondente iniciam simultaneamente
 - [ ] Nos dias 6, 17 e 26 às 12:00 — os 3 leilões do ciclo correspondente encerram simultaneamente
-- [ ] A schematic é colada 1 bloco abaixo do spawn de cada leilão ao iniciar
-- [ ] Um backup da área é salvo antes de cada paste
-- [ ] O NPC é spawnado no spawn do leilão ao iniciar
-- [ ] Ao encerrar: leilão para, NPC some, schematic é restaurada via backup
+- [ ] A schematic é colada 1 bloco abaixo da coordenada configurada por ciclo ao iniciar (uma vez por ciclo)
+- [ ] Um backup da área (`backup_{cycleId}.schem`) é salvo antes do paste
+- [ ] Cada NPC é spawnado na coordenada do ciclo ao iniciar
+- [ ] Ao encerrar: leilões param, NPCs somem, schematic é restaurada via backup (uma vez por ciclo)
 - [ ] Embed Discord é enviado ao iniciar e ao encerrar (quando `enabled: true`)
 - [ ] Placeholders `{start_day}`, `{end_day}`, `{cycle}`, `{auction_count}` são resolvidos no embed
 - [ ] Se `AxDarkAuctionsLoadEvent` disparar após o horário configurado, plugin loga aviso e não agenda
