@@ -22,3 +22,7 @@ run
 
 # Git worktrees
 .worktrees/
+
+# Claude AI
+.claude/
+.specs/
