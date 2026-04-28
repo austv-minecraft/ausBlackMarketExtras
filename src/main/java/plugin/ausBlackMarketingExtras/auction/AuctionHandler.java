@@ -14,7 +14,14 @@ import plugin.ausBlackMarketingExtras.model.CycleConfig;
 import plugin.ausBlackMarketingExtras.npc.NpcHandler;
 import plugin.ausBlackMarketingExtras.schematic.SchematicHandler;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.title.Title;
+import org.bukkit.Sound;
+import org.bukkit.entity.Player;
+
 import java.io.File;
+import java.time.Duration;
 import java.util.Map;
 
 public final class AuctionHandler {
@@ -63,6 +70,11 @@ public final class AuctionHandler {
             DiscordWebhook.send(config.getWebhookUrl(), config.getStartEmbed().withPlaceholders(ph));
         }
 
+        if (config.isBroadcastEnabled()) {
+            broadcastChat(config.getBroadcastStartMessage());
+            broadcastTitleAndSound(config, config.getBroadcastStartTitle(), config.getBroadcastStartSubtitle());
+        }
+
         AusCycleLogger.info("=== Cycle " + cycle.id() + " start complete. ===");
     }
 
@@ -102,6 +114,56 @@ public final class AuctionHandler {
             DiscordWebhook.send(config.getWebhookUrl(), config.getEndEmbed().withPlaceholders(ph));
         }
 
+        if (config.isBroadcastEnabled()) {
+            broadcastChat(config.getBroadcastEndMessage());
+            broadcastTitleAndSound(config, config.getBroadcastEndTitle(), config.getBroadcastEndSubtitle());
+        }
+
         AusCycleLogger.info("=== Cycle " + cycle.id() + " stop complete. ===");
+    }
+
+    private static void broadcastChat(String rawMessage) {
+        if (rawMessage == null || rawMessage.isBlank()) return;
+        String converted = rawMessage.replaceAll("(?i)&#([0-9A-Fa-f]{6})", "<#$1>");
+        Bukkit.broadcast(MiniMessage.miniMessage().deserialize(converted));
+    }
+
+    private static void broadcastTitleAndSound(ConfigManager config, String rawTitle, String rawSubtitle) {
+        if (rawTitle == null || rawTitle.isBlank()) return;
+
+        String titleStr = rawTitle.replaceAll("(?i)&#([0-9A-Fa-f]{6})", "<#$1>");
+        String subtitleStr = (rawSubtitle != null && !rawSubtitle.isBlank())
+            ? rawSubtitle.replaceAll("(?i)&#([0-9A-Fa-f]{6})", "<#$1>")
+            : null;
+
+        Component titleComp = MiniMessage.miniMessage().deserialize(titleStr);
+        Component subtitleComp = subtitleStr != null
+            ? MiniMessage.miniMessage().deserialize(subtitleStr)
+            : Component.empty();
+
+        Title.Times times = Title.Times.times(
+            Duration.ofMillis(config.getTitleFadeIn() * 50L),
+            Duration.ofMillis(config.getTitleStay() * 50L),
+            Duration.ofMillis(config.getTitleFadeOut() * 50L)
+        );
+        Title title = Title.title(titleComp, subtitleComp, times);
+
+        Sound sound = null;
+        String soundName = config.getBroadcastSound();
+        if (soundName != null && !soundName.isBlank()) {
+            try {
+                sound = Sound.valueOf(soundName.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                AusCycleLogger.warn("[ausBlackMarketing] Sound inválido: " + soundName);
+            }
+        }
+
+        Sound finalSound = sound;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.showTitle(title);
+            if (finalSound != null) {
+                player.playSound(player.getLocation(), finalSound, config.getSoundVolume(), config.getSoundPitch());
+            }
+        }
     }
 }
