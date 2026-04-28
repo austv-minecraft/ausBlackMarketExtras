@@ -3,6 +3,7 @@ package plugin.ausBlackMarketingExtras.npc;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
 import org.bukkit.Location;
+import org.bukkit.entity.Entity;
 import plugin.ausBlackMarketingExtras.logging.AusCycleLogger;
 
 public final class NpcHandler {
@@ -30,7 +31,19 @@ public final class NpcHandler {
             return;
         }
         try {
-            npc.despawn();
+            if (!npc.isSpawned()) {
+                AusCycleLogger.warn("NPC id=" + npcId + " is not spawned according to Citizens.");
+            } else {
+                boolean result = npc.despawn();
+                if (!result) {
+                    AusCycleLogger.warn("NPC id=" + npcId + " despawn() returned false.");
+                }
+            }
+            Entity entity = npc.getEntity();
+            if (entity != null && entity.isValid()) {
+                entity.remove();
+                AusCycleLogger.warn("NPC id=" + npcId + " entity force-removed after despawn.");
+            }
             AusCycleLogger.info("NPC id=" + npcId + " despawned.");
         } catch (Exception e) {
             AusCycleLogger.error("Failed to despawn NPC id=" + npcId + ": " + e.getMessage(), e);

@@ -66,6 +66,7 @@ public final class SchematicHandler {
 
         CuboidRegion region = new CuboidRegion(weWorld, min, max);
         BlockArrayClipboard clipboard = new BlockArrayClipboard(region);
+        clipboard.setOrigin(originVec);
 
         try (EditSession editSession = WorldEdit.getInstance().newEditSession(weWorld)) {
             ForwardExtentCopy copy = new ForwardExtentCopy(editSession, region, clipboard, region.getMinimumPoint());
