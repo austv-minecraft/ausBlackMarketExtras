@@ -93,3 +93,18 @@ discord:
       text: "AusTV Network • Mercado Clandestino"
       icon-url: ""
     timestamp: true
+
+broadcast:
+  enabled: true
+  start-message: "&#FFD700[Mercado Clandestino] <white>O mercado clandestino está aberto! Corra para aproveitar!</white>"
+  end-message: "&#FF4444[Mercado Clandestino] <white>O mercado clandestino foi encerrado. Até o próximo ciclo!</white>"
+  start-title: "&#FFD700<bold>Mercado Clandestino</bold>"
+  start-subtitle: "<white>Está aberto! Corra para aproveitar</white>"
+  end-title: "&#FF4444<bold>Mercado Clandestino</bold>"
+  end-subtitle: "<white>Encerrado. Até o próximo ciclo!</white>"
+  title-fade-in: 10
+  title-stay: 60
+  title-fade-out: 20
+  sound: "ENTITY_ENDER_DRAGON_GROWL"
+  sound-volume: 1.0
+  sound-pitch: 1.0
