@@ -1,4 +1,4 @@
-name: Release Please
+name: Release + Build
 
 on:
   push:
@@ -10,10 +10,44 @@ permissions:
   pull-requests: write
 
 jobs:
-  release-please:
+  release:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: actions/checkout@v4
+
+      # 🔧 Release Please (cria PR ou release)
+      - name: Release Please
         id: release
+        uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ⚠️ Só continua se uma release foi criada
+      - name: Set up Java 21
+        if: ${{ steps.release.outputs.release_created }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        if: ${{ steps.release.outputs.release_created }}
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build plugin
+        if: ${{ steps.release.outputs.release_created }}
+        run: ./gradlew build -x test
+
+      # 🔍 Debug (opcional, mas útil)
+      - name: List files
+        if: ${{ steps.release.outputs.release_created }}
+        run: ls -la build/libs/
+
+      # 📦 Upload do JAR para a release criada
+      - name: Upload JAR to release
+        if: ${{ steps.release.outputs.release_created }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag_name }}
+          files: build/libs/*.jar
