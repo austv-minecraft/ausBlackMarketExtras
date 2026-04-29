@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/austv-minecraft/ausBlackMarketExtras/compare/v1.2.0...v1.2.1) (2026-04-29)
+
+
+### Bug Fixes
+
+* **commands:** migrate to Paper LifecycleEvents API for command registration ([f685dea](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/f685deafc9c6b6e17db8d99a0472e84fa9a7b54d))
+* **commands:** migrate to Paper LifecycleEvents API for command registration ([90e41f2](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/90e41f292aa7f0e8ea43f83c93eff0b940eb4519))
+
 ## [1.2.0](https://github.com/austv-minecraft/ausBlackMarketExtras/compare/v1.1.0...v1.2.0) (2026-04-28)
 
 
