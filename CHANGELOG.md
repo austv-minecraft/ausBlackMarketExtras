@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.0](https://github.com/austv-minecraft/ausBlackMarketExtras/compare/v1.2.1...v1.3.0) (2026-04-29)
+
+
+### Features
+
+* dispara nova release ([96dcd6f](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/96dcd6f91e47bc2e7a70b37149f03fb01dd869be))
+* dispara nova release ([96dcd6f](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/96dcd6f91e47bc2e7a70b37149f03fb01dd869be))
+* dispara nova release ([a2f12f2](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/a2f12f25881668a59eb607acd8c5ce1e450a931d))
+
 ## [1.2.1](https://github.com/austv-minecraft/ausBlackMarketExtras/compare/v1.2.0...v1.2.1) (2026-04-29)
 
 
