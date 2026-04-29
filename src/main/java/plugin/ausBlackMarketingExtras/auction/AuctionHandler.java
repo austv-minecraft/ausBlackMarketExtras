@@ -11,6 +11,8 @@ import plugin.ausBlackMarketingExtras.discord.DiscordWebhook;
 import plugin.ausBlackMarketingExtras.logging.AusCycleLogger;
 import plugin.ausBlackMarketingExtras.model.AuctionEntry;
 import plugin.ausBlackMarketingExtras.model.CycleConfig;
+import plugin.ausBlackMarketingExtras.building.BuildingRemovalHandler;
+import plugin.ausBlackMarketingExtras.hologram.HologramHandler;
 import plugin.ausBlackMarketingExtras.npc.NpcHandler;
 import plugin.ausBlackMarketingExtras.schematic.SchematicHandler;
 
@@ -41,9 +43,19 @@ public final class AuctionHandler {
         Location cycleLoc = new Location(world, cycle.x(), cycle.y(), cycle.z());
         Location schematicLoc = cycleLoc.clone().add(0, -1, 0);
 
+        if (cycle.buildingRemoval() != null) {
+            File removalBackup = new File(plugin.getDataFolder(),
+                "schematics/backups/building_removal_" + cycle.id() + ".schem");
+            BuildingRemovalHandler.remove(cycle.buildingRemoval(), removalBackup);
+        }
+
         File schematicFile = new File(plugin.getDataFolder(), "schematics/" + config.getSchematic());
         File backupFile = new File(plugin.getDataFolder(), "schematics/backups/backup_" + cycle.id() + ".schem");
         SchematicHandler.paste(schematicLoc, schematicFile, backupFile);
+
+        if (cycle.hologram() != null) {
+            HologramHandler.show(cycle.hologram());
+        }
 
         for (AuctionEntry entry : cycle.auctions()) {
             Auction auction = AuctionManager.getAuctions().get(entry.name());
@@ -101,8 +113,18 @@ public final class AuctionHandler {
             AusCycleLogger.info("Auction '" + entry.name() + "' stopped.");
         }
 
+        if (cycle.hologram() != null) {
+            HologramHandler.hide(cycle.hologram());
+        }
+
         File backupFile = new File(plugin.getDataFolder(), "schematics/backups/backup_" + cycle.id() + ".schem");
         SchematicHandler.restore(schematicLoc, backupFile);
+
+        if (cycle.buildingRemoval() != null) {
+            File removalBackup = new File(plugin.getDataFolder(),
+                "schematics/backups/building_removal_" + cycle.id() + ".schem");
+            BuildingRemovalHandler.restore(cycle.buildingRemoval(), removalBackup);
+        }
 
         if (config.isDiscordEnabled() && !config.getWebhookUrl().isBlank()) {
             Map<String, String> ph = Map.of(
