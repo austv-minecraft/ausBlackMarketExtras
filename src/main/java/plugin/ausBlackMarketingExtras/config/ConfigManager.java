@@ -4,7 +4,9 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import plugin.ausBlackMarketingExtras.discord.EmbedConfig;
 import plugin.ausBlackMarketingExtras.model.AuctionEntry;
+import plugin.ausBlackMarketingExtras.model.BuildingRemovalConfig;
 import plugin.ausBlackMarketingExtras.model.CycleConfig;
+import plugin.ausBlackMarketingExtras.model.HologramConfig;
 
 import java.util.*;
 
@@ -57,7 +59,44 @@ public final class ConfigManager {
                         (int) map.get("npc-id")
                     ));
                 }
-                cycles.add(new CycleConfig(id, startDay, endDay, world, x, y, z, Collections.unmodifiableList(entries)));
+
+                BuildingRemovalConfig buildingRemoval = null;
+                ConfigurationSection removalSection = cs.getConfigurationSection("building-removal");
+                if (removalSection != null) {
+                    ConfigurationSection c1 = removalSection.getConfigurationSection("corner1");
+                    ConfigurationSection c2 = removalSection.getConfigurationSection("corner2");
+                    if (c1 != null && c2 != null) {
+                        String removalWorld = c1.getString("world", world);
+                        buildingRemoval = new BuildingRemovalConfig(
+                            removalWorld,
+                            c1.getInt("x"), c1.getInt("y"), c1.getInt("z"),
+                            c2.getInt("x"), c2.getInt("y"), c2.getInt("z")
+                        );
+                    }
+                }
+
+                HologramConfig hologramConfig = null;
+                ConfigurationSection hologramSection = cs.getConfigurationSection("hologram");
+                if (hologramSection != null) {
+                    String hologramName = hologramSection.getString("name", "");
+                    ConfigurationSection hologramLoc = hologramSection.getConfigurationSection("location");
+                    if (!hologramName.isBlank() && hologramLoc != null) {
+                        hologramConfig = new HologramConfig(
+                            hologramName,
+                            hologramLoc.getString("world", world),
+                            hologramLoc.getDouble("x"),
+                            hologramLoc.getDouble("y"),
+                            hologramLoc.getDouble("z")
+                        );
+                    }
+                }
+
+                cycles.add(new CycleConfig(
+                    id, startDay, endDay, world, x, y, z,
+                    Collections.unmodifiableList(entries),
+                    buildingRemoval,
+                    hologramConfig
+                ));
             }
         }
 
