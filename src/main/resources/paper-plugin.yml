@@ -21,12 +21,6 @@ dependencies:
       load: BEFORE
       required: true
 
-commands:
-  ausblack:
-    description: Comandos administrativos do ausBlackMarketingExtras
-    usage: /ausblack <ciclo start <id>|ciclo end <id>|reload>
-    permission: ausblack.admin
-
 permissions:
   ausblack.admin:
     description: Acesso a todos os comandos ausblack

@@ -1,7 +1,9 @@
 package plugin.ausBlackMarketingExtras;
 
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import plugin.ausBlackMarketingExtras.command.AusBlackCommand;
 import plugin.ausBlackMarketingExtras.config.ConfigManager;
 import plugin.ausBlackMarketingExtras.listener.DarkAuctionsLoadListener;
 import plugin.ausBlackMarketingExtras.logging.AusCycleLogger;
@@ -24,7 +26,12 @@ public final class AusBlackMarketingExtras extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
             new DarkAuctionsLoadListener(this, configManager), this
         );
-        getCommand("ausblack").setExecutor(new plugin.ausBlackMarketingExtras.command.AusBlackCommand(this));
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
+            event.registrar().register("ausblack",
+                "Comandos administrativos do ausBlackMarketingExtras",
+                List.of(),
+                new AusBlackCommand(this))
+        );
     }
 
     @Override
