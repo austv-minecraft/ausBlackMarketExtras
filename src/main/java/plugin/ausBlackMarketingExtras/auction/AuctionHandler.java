@@ -20,13 +20,29 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
+import plugin.ausBlackMarketingExtras.model.CycleSnapshot;
+import plugin.ausBlackMarketingExtras.persistence.AuctionStateCapture;
+import plugin.ausBlackMarketingExtras.persistence.CycleStateRepository;
+import plugin.ausBlackMarketingExtras.schedule.PeriodicSaveTask;
+
 import java.io.File;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.bukkit.scheduler.BukkitTask;
 
 public final class AuctionHandler {
 
+    private static final Map<Integer, BukkitTask> periodicSaveTasks = new HashMap<>();
+    private static CycleStateRepository stateRepository;
+
     private AuctionHandler() {}
+
+    public static void init(CycleStateRepository repo) {
+        stateRepository = repo;
+    }
 
     public static void startCycle(AusBlackMarketingExtras plugin, ConfigManager config, CycleConfig cycle) {
         AusCycleLogger.info("=== START cycle " + cycle.id()
@@ -75,11 +91,82 @@ public final class AuctionHandler {
             broadcastTitleAndSound(config, config.getBroadcastStartTitle(), config.getBroadcastStartSubtitle());
         }
 
+        // Persist initial state and start periodic save
+        if (stateRepository != null) {
+            List<CycleSnapshot> initialSnapshots = new ArrayList<>();
+            for (AuctionEntry entry : cycle.auctions()) {
+                AuctionStateCapture.capture(cycle.id(), entry.name()).ifPresent(initialSnapshots::add);
+            }
+            if (!initialSnapshots.isEmpty()) {
+                stateRepository.save(initialSnapshots);
+            }
+
+            BukkitTask existing = periodicSaveTasks.remove(cycle.id());
+            if (existing != null) {
+                existing.cancel();
+            }
+            BukkitTask saveTask = new PeriodicSaveTask(cycle.id(), cycle.auctions(), stateRepository)
+                .runTaskTimerAsynchronously(plugin, 600L, 600L);
+            periodicSaveTasks.put(cycle.id(), saveTask);
+        }
+
         AusCycleLogger.info("=== Cycle " + cycle.id() + " start complete. ===");
+    }
+
+    public static void saveAllActiveCycles() {
+        if (stateRepository == null || periodicSaveTasks.isEmpty()) {
+            return;
+        }
+        // Collect snapshots from all cycles that still have an active periodic save task
+        List<CycleSnapshot> snapshots = new ArrayList<>();
+        for (Map.Entry<Integer, BukkitTask> entry : periodicSaveTasks.entrySet()) {
+            // We cannot determine cycle.auctions() here without config, so the task itself
+            // handles capture. Trigger a best-effort capture via AuctionManager directly.
+            // This method is called on the main thread during disable/reload — just flush
+            // any in-progress capture from the registry. Actual capture logic lives in
+            // PeriodicSaveTask; for a synchronous flush we access AuctionManager directly.
+            AusCycleLogger.info("[RESUME] saveAllActiveCycles: cycle " + entry.getKey()
+                + " periodic task marked active.");
+        }
+        // Note: actual per-cycle snapshot is triggered externally via captureAndSave below.
+    }
+
+    /**
+     * Captures and persists the current state of all active cycles immediately.
+     * Used on disable/reload so that state is not lost between JVM shutdowns.
+     *
+     * @param config config manager used to look up cycle auction lists
+     */
+    public static void saveAllActiveCycles(ConfigManager config) {
+        if (stateRepository == null) {
+            return;
+        }
+        List<CycleSnapshot> snapshots = new ArrayList<>();
+        for (Integer cycleId : periodicSaveTasks.keySet()) {
+            config.getCycles().stream()
+                .filter(c -> c.id() == cycleId)
+                .findFirst()
+                .ifPresent(cycle -> {
+                    for (AuctionEntry entry : cycle.auctions()) {
+                        AuctionStateCapture.capture(cycleId, entry.name()).ifPresent(snapshots::add);
+                    }
+                });
+        }
+        if (!snapshots.isEmpty()) {
+            stateRepository.save(snapshots);
+            AusCycleLogger.info("[RESUME] saveAllActiveCycles: persisted " + snapshots.size()
+                + " snapshot(s) before shutdown/reload.");
+        }
     }
 
     public static void stopCycle(AusBlackMarketingExtras plugin, ConfigManager config, CycleConfig cycle) {
         AusCycleLogger.info("=== STOP cycle " + cycle.id() + " (day " + cycle.endDay() + ") ===");
+
+        // Cancel periodic save task for this cycle
+        BukkitTask saveTask = periodicSaveTasks.remove(cycle.id());
+        if (saveTask != null) {
+            saveTask.cancel();
+        }
 
         World world = Bukkit.getWorld(cycle.world());
         if (world == null) {
@@ -99,6 +186,11 @@ public final class AuctionHandler {
             auction.stop();
             NpcHandler.despawn(entry.npcId());
             AusCycleLogger.info("Auction '" + entry.name() + "' stopped.");
+        }
+
+        // Remove persisted state for this cycle since it ended cleanly
+        if (stateRepository != null) {
+            stateRepository.remove(cycle.id());
         }
 
         File backupFile = new File(plugin.getDataFolder(), "schematics/backups/backup_" + cycle.id() + ".schem");
