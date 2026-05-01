@@ -12,6 +12,28 @@ cycles:
       x: 0
       y: 64
       z: 0
+    # (Opcional) Remove a construção existente definida pelo cubo entre corner1 e corner2.
+    # O plugin salva o backup e restaura no ciclo de end.
+    building-removal:
+      corner1:
+        world: "world"
+        x: 0
+        y: 60
+        z: 0
+      corner2:
+        world: "world"
+        x: 20
+        y: 80
+        z: 20
+    # (Opcional) Holograma do DecentHolograms exibido no local do mercado.
+    # Crie o holograma via DecentHolograms e coloque o nome aqui.
+    hologram:
+      name: "mercado_clandestino_1"
+      location:
+        world: "world"
+        x: 10.5
+        y: 70.0
+        z: 10.5
     auctions:
       - name: "leilaodocas1"
         npc-id: 1
@@ -27,6 +49,7 @@ cycles:
       x: 0
       y: 64
       z: 0
+    # building-removal e hologram são opcionais — remova a seção para desativar
     auctions:
       - name: "leilaocentro1"
         npc-id: 4

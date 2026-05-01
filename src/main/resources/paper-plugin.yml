@@ -20,6 +20,9 @@ dependencies:
     Citizens:
       load: BEFORE
       required: true
+    DecentHolograms:
+      load: BEFORE
+      required: true
 
 permissions:
   ausblack.admin:

@@ -8,6 +8,8 @@ repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://maven.enginehub.org/repo/")
     maven { name = "citizens-repo"; url = uri("https://maven.citizensnpcs.co/repo") }
+    maven { name = "codemc"; url = uri("https://repo.codemc.io/repository/maven-public/") }
+    maven { name = "jitpack"; url = uri("https://jitpack.io") }
 }
 
 dependencies {
@@ -15,6 +17,7 @@ dependencies {
     compileOnly(files("src/main/libs/AxDarkAuctions-1.8.0.jar"))
     compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.3.0")
     compileOnly("net.citizensnpcs:citizens-main:2.0.35-SNAPSHOT") { isTransitive = false }
+    compileOnly("com.github.decentsoftware-eu.DecentHolograms:decentholograms:2.9.9") { isTransitive = false }
 
     testCompileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
     testRuntimeOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
