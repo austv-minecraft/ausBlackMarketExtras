@@ -113,24 +113,6 @@ public final class AuctionHandler {
         AusCycleLogger.info("=== Cycle " + cycle.id() + " start complete. ===");
     }
 
-    public static void saveAllActiveCycles() {
-        if (stateRepository == null || periodicSaveTasks.isEmpty()) {
-            return;
-        }
-        // Collect snapshots from all cycles that still have an active periodic save task
-        List<CycleSnapshot> snapshots = new ArrayList<>();
-        for (Map.Entry<Integer, BukkitTask> entry : periodicSaveTasks.entrySet()) {
-            // We cannot determine cycle.auctions() here without config, so the task itself
-            // handles capture. Trigger a best-effort capture via AuctionManager directly.
-            // This method is called on the main thread during disable/reload — just flush
-            // any in-progress capture from the registry. Actual capture logic lives in
-            // PeriodicSaveTask; for a synchronous flush we access AuctionManager directly.
-            AusCycleLogger.info("[RESUME] saveAllActiveCycles: cycle " + entry.getKey()
-                + " periodic task marked active.");
-        }
-        // Note: actual per-cycle snapshot is triggered externally via captureAndSave below.
-    }
-
     /**
      * Captures and persists the current state of all active cycles immediately.
      * Used on disable/reload so that state is not lost between JVM shutdowns.

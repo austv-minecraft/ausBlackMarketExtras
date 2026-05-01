@@ -104,8 +104,14 @@ public final class AuctionResumeHandler {
       return;
     }
 
-    // Apply saved state
-    auction.setTime((int) (remainingMs / 50L));
+    // Apply saved state — cap to Integer.MAX_VALUE to avoid silent overflow
+    long timeUnits = remainingMs / 50L;
+    if (timeUnits > Integer.MAX_VALUE) {
+      AusCycleLogger.warn("[RESUME] Time remainder exceeds int range ("
+          + timeUnits + " ticks), capping to Integer.MAX_VALUE.");
+      timeUnits = Integer.MAX_VALUE;
+    }
+    auction.setTime((int) timeUnits);
     auction.setBid(snapshot.bid());
 
     try {
