@@ -48,6 +48,22 @@ public final class AusBlackMarketingExtras extends JavaPlugin {
             List.of(),
             new AusBlackCommand(this, stateRepository))
     );
+
+    // Fallback restore for server restart: if saved state exists but
+    // AxDarkAuctionsLoadEvent never fires (e.g. event dispatched before our
+    // listener was registered), this task triggers restore after 60 ticks (3s),
+    // by which time all plugins and worlds are fully ready.
+    // Idempotent: if the event already fired and cleared the state, hasState()
+    // returns false and this task does nothing.
+    if (stateRepository.hasState()) {
+      getServer().getScheduler().runTaskLater(this, () -> {
+        if (stateRepository.hasState()) {
+          AusCycleLogger.info("[RESUME] Startup fallback: AxDarkAuctionsLoadEvent did not fire"
+              + " — triggering restore manually.");
+          resumeHandler.attemptRestore();
+        }
+      }, 60L);
+    }
   }
 
   @Override
