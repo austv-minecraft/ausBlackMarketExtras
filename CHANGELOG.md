@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/austv-minecraft/ausBlackMarketExtras/compare/v1.4.0...v1.5.0) (2026-05-02)
+
+
+### Features
+
+* **resume:** auction state persistence & auto-resume ([ca07620](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/ca07620885cb30dc3d2e1b53858c5752e6f3fac7))
+
+
+### Bug Fixes
+
+* **resume:** add startup fallback restore in onEnable ([7e5fdd3](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/7e5fdd385db3b43f51d9d5c12e2a98506ddaa3c0))
+
 ## [1.4.0](https://github.com/austv-minecraft/ausBlackMarketExtras/compare/v1.3.0...v1.4.0) (2026-05-02)
 
 
