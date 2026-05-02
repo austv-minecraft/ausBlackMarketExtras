@@ -95,12 +95,22 @@ public final class AuctionResumeHandler {
         continue;
       }
 
+      // If any auction is already running on the server, skip the expiry check.
+      // The saved endTimeEpoch may have passed by a few hundred milliseconds during
+      // the 40-tick (2s) delay between save and restore — but the auction is clearly
+      // still alive from the server's perspective. Applying stopCycle here would
+      // shut down a live auction incorrectly.
+      boolean anyCurrentlyRunning = cycleSnapshots.stream().anyMatch(s -> {
+        Auction a = AuctionManager.getAuctions().get(s.auctionName());
+        return a != null && a.isRunning();
+      });
+
       long maxEndEpoch = cycleSnapshots.stream()
           .mapToLong(CycleSnapshot::endTimeEpoch)
           .max()
           .orElse(0L);
 
-      if (maxEndEpoch <= System.currentTimeMillis()) {
+      if (!anyCurrentlyRunning && maxEndEpoch <= System.currentTimeMillis()) {
         AusCycleLogger.info("[RESUME] Cycle " + cycleId
             + " expired during downtime (was due to end at epoch " + maxEndEpoch + "). Stopping cycle.");
         AuctionHandler.stopCycle(plugin, configManager, cycle);
