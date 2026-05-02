@@ -145,7 +145,22 @@ public final class AuctionResumeHandler {
       return;
     }
 
-    AuctionHandler.startCycleForRestore(plugin, configManager, cycle);
+    // Detect reload vs restart: if any auction is already running, the auctions survived
+    // the /axda reload — stopping and restarting them would clear the display block item
+    // and current bid. In that case restore only infrastructure (schematic, hologram, NPCs).
+    // For server restart, no auctions are running, so full startCycleForRestore is needed.
+    boolean anyRunning = snapshots.stream().anyMatch(s -> {
+      Auction a = AuctionManager.getAuctions().get(s.auctionName());
+      return a != null && a.isRunning();
+    });
+
+    if (anyRunning) {
+      AusCycleLogger.info("[RESUME] Cycle " + cycle.id()
+          + ": auctions already running (post-reload) — restoring infrastructure only.");
+      AuctionHandler.restoreInfrastructureOnly(plugin, configManager, cycle);
+    } else {
+      AuctionHandler.startCycleForRestore(plugin, configManager, cycle);
+    }
     boolean hadRestoreFailure = false;
 
     for (CycleSnapshot snapshot : snapshots) {
