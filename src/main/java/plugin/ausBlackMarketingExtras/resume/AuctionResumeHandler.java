@@ -15,11 +15,17 @@ import plugin.ausBlackMarketingExtras.persistence.CycleStateRepository;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 public final class AuctionResumeHandler {
+
+  private static final int RESTORE_RETRY_LIMIT = 10;
+  private static final long RESTORE_RETRY_DELAY_TICKS = 20L;
 
   private final AusBlackMarketingExtras plugin;
   private final CycleStateRepository repository;
@@ -51,13 +57,20 @@ public final class AuctionResumeHandler {
 
     int today = LocalDate.now(ZoneId.of("America/Sao_Paulo")).getDayOfMonth();
 
+    Map<Integer, List<CycleSnapshot>> snapshotsByCycle = new HashMap<>();
     for (CycleSnapshot snapshot : snapshots) {
+      snapshotsByCycle.computeIfAbsent(snapshot.cycleId(), ignored -> new ArrayList<>()).add(snapshot);
+    }
+
+    for (Map.Entry<Integer, List<CycleSnapshot>> cycleEntry : snapshotsByCycle.entrySet()) {
+      int cycleId = cycleEntry.getKey();
+      List<CycleSnapshot> cycleSnapshots = cycleEntry.getValue();
       Optional<CycleConfig> optConfig = configManager.getCycles().stream()
-          .filter(c -> c.id() == snapshot.cycleId())
+          .filter(c -> c.id() == cycleId)
           .findFirst();
 
       if (optConfig.isEmpty()) {
-        AusCycleLogger.warn("[RESUME] Cycle " + snapshot.cycleId()
+        AusCycleLogger.warn("[RESUME] Cycle " + cycleId
             + " not found in config. Skipping.");
         continue;
       }
@@ -65,94 +78,133 @@ public final class AuctionResumeHandler {
       CycleConfig cycle = optConfig.get();
 
       if (today < cycle.startDay() || today > cycle.endDay()) {
-        AusCycleLogger.info("[RESUME] Cycle " + snapshot.cycleId()
+        AusCycleLogger.info("[RESUME] Cycle " + cycleId
             + " is outside active date range (" + cycle.startDay() + "-" + cycle.endDay()
             + "). Today=" + today + ". Skipping.");
-        repository.remove(snapshot.cycleId());
+        repository.remove(cycleId);
         continue;
       }
 
-      long remainingMs = snapshot.endTimeEpoch() - System.currentTimeMillis();
-      if (remainingMs <= 0) {
-        AusCycleLogger.info("[RESUME] Cycle " + snapshot.cycleId()
-            + " expired during downtime (was due to end at epoch "
-            + snapshot.endTimeEpoch() + "). Stopping cycle.");
+      long maxEndEpoch = cycleSnapshots.stream()
+          .mapToLong(CycleSnapshot::endTimeEpoch)
+          .max()
+          .orElse(0L);
+
+      if (maxEndEpoch <= System.currentTimeMillis()) {
+        AusCycleLogger.info("[RESUME] Cycle " + cycleId
+            + " expired during downtime (was due to end at epoch " + maxEndEpoch + "). Stopping cycle.");
         AuctionHandler.stopCycle(plugin, configManager, cycle);
-        repository.remove(snapshot.cycleId());
+        repository.remove(cycleId);
         continue;
       }
 
       final CycleConfig finalCycle = cycle;
-      final CycleSnapshot finalSnap = snapshot;
-      final long finalRemainingMs = remainingMs;
+      final List<CycleSnapshot> finalSnapshots = List.copyOf(cycleSnapshots);
 
       Bukkit.getScheduler().runTask(plugin,
-          () -> restoreCycle(finalCycle, finalSnap, finalRemainingMs));
+          () -> restoreCycleWithRetry(finalCycle, finalSnapshots, 0));
     }
 
     return true;
   }
 
-  private void restoreCycle(CycleConfig cycle, CycleSnapshot snapshot, long remainingMs) {
-    // Start NPCs + schematic (skips already-running auctions internally)
-    AuctionHandler.startCycle(plugin, configManager, cycle);
+  private void restoreCycleWithRetry(CycleConfig cycle, List<CycleSnapshot> snapshots, int attempt) {
+    List<String> missingAuctions = new ArrayList<>();
+    for (CycleSnapshot snapshot : snapshots) {
+      if (AuctionManager.getAuctions().get(snapshot.auctionName()) == null) {
+        missingAuctions.add(snapshot.auctionName());
+      }
+    }
 
-    Auction auction = AuctionManager.getAuctions().get(snapshot.auctionName());
-    if (auction == null) {
-      AusCycleLogger.error("[RESUME] ERROR: Auction '" + snapshot.auctionName()
-          + "' not found after startCycle. Cannot restore state.");
+    if (!missingAuctions.isEmpty()) {
+      if (attempt >= RESTORE_RETRY_LIMIT) {
+        AusCycleLogger.error("[RESUME] Failed to restore cycle " + cycle.id()
+            + " after " + RESTORE_RETRY_LIMIT + " attempts. Missing auctions: " + missingAuctions
+            + ". Keeping saved state for next startup.");
+        return;
+      }
+      int nextAttempt = attempt + 1;
+      AusCycleLogger.warn("[RESUME] Cycle " + cycle.id() + " restore postponed (attempt "
+          + nextAttempt + "/" + RESTORE_RETRY_LIMIT + "). Missing auctions: " + missingAuctions
+          + ". Retrying in " + RESTORE_RETRY_DELAY_TICKS + " ticks.");
+      Bukkit.getScheduler().runTaskLater(
+          plugin,
+          () -> restoreCycleWithRetry(cycle, snapshots, nextAttempt),
+          RESTORE_RETRY_DELAY_TICKS
+      );
       return;
     }
 
-    // Apply saved state — cap to Integer.MAX_VALUE to avoid silent overflow
-    long timeUnits = remainingMs / 50L;
-    if (timeUnits > Integer.MAX_VALUE) {
-      AusCycleLogger.warn("[RESUME] Time remainder exceeds int range ("
-          + timeUnits + " ticks), capping to Integer.MAX_VALUE.");
-      timeUnits = Integer.MAX_VALUE;
-    }
-    auction.setTime((int) timeUnits);
-    auction.setBid(snapshot.bid());
+    AuctionHandler.startCycleForRestore(plugin, configManager, cycle);
+    boolean hadRestoreFailure = false;
 
-    try {
-      auction.setState(State.valueOf(snapshot.state()));
-    } catch (IllegalArgumentException e) {
-      AusCycleLogger.warn("[RESUME] Unknown state '" + snapshot.state()
-          + "' — skipping setState.");
-    }
-
-    // Restore top bidder if online
-    if (!snapshot.topBidderUuid().isEmpty()) {
-      try {
-        UUID uuid = UUID.fromString(snapshot.topBidderUuid());
-        Player player = Bukkit.getPlayer(uuid);
-        if (player != null) {
-          auction.setTopBidder(player);
-          AusCycleLogger.info("[RESUME] Auction '" + snapshot.auctionName()
-              + "' restored: state=" + snapshot.state()
-              + ", time_remaining=" + remainingMs + "ms"
-              + ", bid=" + snapshot.bid()
-              + ", top_bidder=" + player.getName());
-        } else {
-          AusCycleLogger.warn("[RESUME] WARNING: Top bidder " + snapshot.topBidderName()
-              + " (" + snapshot.topBidderUuid() + ") is offline"
-              + " — bid value preserved but bidder not assigned.");
-          AusCycleLogger.info("[RESUME] Auction '" + snapshot.auctionName()
-              + "' restored: state=" + snapshot.state()
-              + ", time_remaining=" + remainingMs + "ms"
-              + ", bid=" + snapshot.bid() + " (no active bidder)");
-        }
-      } catch (IllegalArgumentException e) {
-        AusCycleLogger.warn("[RESUME] Invalid top bidder UUID '"
-            + snapshot.topBidderUuid() + "'. Skipping bidder restore.");
+    for (CycleSnapshot snapshot : snapshots) {
+      long remainingMs = snapshot.endTimeEpoch() - System.currentTimeMillis();
+      if (remainingMs <= 0) {
+        continue;
       }
-    } else {
-      AusCycleLogger.info("[RESUME] Auction '" + snapshot.auctionName()
-          + "' restored: state=" + snapshot.state()
-          + ", time_remaining=" + remainingMs + "ms"
-          + ", bid=" + snapshot.bid());
+
+      Auction auction = AuctionManager.getAuctions().get(snapshot.auctionName());
+      if (auction == null) {
+        AusCycleLogger.error("[RESUME] ERROR: Auction '" + snapshot.auctionName()
+            + "' not found after startCycle. Cannot restore state.");
+        hadRestoreFailure = true;
+        continue;
+      }
+
+      long timeUnits = remainingMs / 50L;
+      if (timeUnits > Integer.MAX_VALUE) {
+        AusCycleLogger.warn("[RESUME] Time remainder exceeds int range ("
+            + timeUnits + " ticks), capping to Integer.MAX_VALUE.");
+        timeUnits = Integer.MAX_VALUE;
+      }
+      auction.setTime((int) timeUnits);
+      auction.setBid(snapshot.bid());
+
+      try {
+        auction.setState(State.valueOf(snapshot.state()));
+      } catch (IllegalArgumentException e) {
+        AusCycleLogger.warn("[RESUME] Unknown state '" + snapshot.state()
+            + "' — skipping setState.");
+      }
+
+      if (!snapshot.topBidderUuid().isEmpty()) {
+        try {
+          UUID uuid = UUID.fromString(snapshot.topBidderUuid());
+          Player player = Bukkit.getPlayer(uuid);
+          if (player != null) {
+            auction.setTopBidder(player);
+            AusCycleLogger.info("[RESUME] Auction '" + snapshot.auctionName()
+                + "' restored: state=" + snapshot.state()
+                + ", time_remaining=" + remainingMs + "ms"
+                + ", bid=" + snapshot.bid()
+                + ", top_bidder=" + player.getName());
+          } else {
+            AusCycleLogger.warn("[RESUME] WARNING: Top bidder " + snapshot.topBidderName()
+                + " (" + snapshot.topBidderUuid() + ") is offline"
+                + " — bid value preserved but bidder not assigned.");
+            AusCycleLogger.info("[RESUME] Auction '" + snapshot.auctionName()
+                + "' restored: state=" + snapshot.state()
+                + ", time_remaining=" + remainingMs + "ms"
+                + ", bid=" + snapshot.bid() + " (no active bidder)");
+          }
+        } catch (IllegalArgumentException e) {
+          AusCycleLogger.warn("[RESUME] Invalid top bidder UUID '"
+              + snapshot.topBidderUuid() + "'. Skipping bidder restore.");
+        }
+      } else {
+        AusCycleLogger.info("[RESUME] Auction '" + snapshot.auctionName()
+            + "' restored: state=" + snapshot.state()
+            + ", time_remaining=" + remainingMs + "ms"
+            + ", bid=" + snapshot.bid());
+      }
     }
 
-    repository.remove(snapshot.cycleId());
+    if (!hadRestoreFailure) {
+      repository.remove(cycle.id());
+    } else {
+      AusCycleLogger.warn("[RESUME] Cycle " + cycle.id()
+          + " had restore errors. Keeping saved state for retry on next startup.");
+    }
   }
 }
