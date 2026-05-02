@@ -77,7 +77,17 @@ public final class AuctionResumeHandler {
 
       CycleConfig cycle = optConfig.get();
 
-      if (today < cycle.startDay() || today > cycle.endDay()) {
+      // Skip date-range check if state is fresh (saved within the last 30 minutes).
+      // Fresh state means this restore was triggered by /axda reload (state saved seconds
+      // ago), so the day-of-month check would wrongly reject it. Stale state (server was
+      // down for hours/days) still goes through the date-range filter.
+      long maxSavedAt = cycleSnapshots.stream()
+          .mapToLong(CycleSnapshot::savedAt)
+          .max()
+          .orElse(0L);
+      boolean isFreshState = (System.currentTimeMillis() - maxSavedAt) < 30 * 60 * 1000L;
+
+      if (!isFreshState && (today < cycle.startDay() || today > cycle.endDay())) {
         AusCycleLogger.info("[RESUME] Cycle " + cycleId
             + " is outside active date range (" + cycle.startDay() + "-" + cycle.endDay()
             + "). Today=" + today + ". Skipping.");
