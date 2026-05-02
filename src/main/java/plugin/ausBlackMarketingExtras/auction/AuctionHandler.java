@@ -54,6 +54,61 @@ public final class AuctionHandler {
         startCycle(plugin, config, cycle, true);
     }
 
+    /**
+     * Restores only the physical infrastructure (schematic, hologram, NPCs) for a cycle
+     * without touching running auctions. Used during /axda reload restore, where auctions
+     * are already running and should not be stopped/restarted (which would reset item display
+     * and current bid state). Also (re)starts the periodic save task for the cycle.
+     */
+    public static void restoreInfrastructureOnly(
+        AusBlackMarketingExtras plugin, ConfigManager config, CycleConfig cycle) {
+
+        AusCycleLogger.info("[RESUME] Restoring infrastructure for cycle " + cycle.id()
+            + " (auctions kept running).");
+
+        World world = Bukkit.getWorld(cycle.world());
+        if (world == null) {
+            AusCycleLogger.error("World '" + cycle.world()
+                + "' not found. Aborting infrastructure restore for cycle " + cycle.id() + ".");
+            return;
+        }
+
+        Location cycleLoc = new Location(world, cycle.x(), cycle.y(), cycle.z());
+        Location schematicLoc = cycleLoc.clone().add(0, -1, 0);
+
+        if (cycle.buildingRemoval() != null) {
+            File removalBackup = new File(plugin.getDataFolder(),
+                "schematics/backups/building_removal_" + cycle.id() + ".schem");
+            BuildingRemovalHandler.remove(cycle.buildingRemoval(), removalBackup);
+        }
+
+        File schematicFile = new File(plugin.getDataFolder(), "schematics/" + config.getSchematic());
+        File backupFile = new File(plugin.getDataFolder(),
+            "schematics/backups/backup_" + cycle.id() + ".schem");
+        SchematicHandler.paste(schematicLoc, schematicFile, backupFile);
+
+        if (cycle.hologram() != null) {
+            HologramHandler.show(cycle.hologram());
+        }
+
+        for (AuctionEntry entry : cycle.auctions()) {
+            NpcHandler.spawn(entry.npcId(), cycleLoc);
+        }
+
+        // (Re)start periodic save task so state continues to be persisted
+        if (stateRepository != null) {
+            BukkitTask existing = periodicSaveTasks.remove(cycle.id());
+            if (existing != null) {
+                existing.cancel();
+            }
+            BukkitTask saveTask = new PeriodicSaveTask(cycle.id(), cycle.auctions(), stateRepository)
+                .runTaskTimerAsynchronously(plugin, 600L, 600L);
+            periodicSaveTasks.put(cycle.id(), saveTask);
+        }
+
+        AusCycleLogger.info("[RESUME] Infrastructure restore complete for cycle " + cycle.id() + ".");
+    }
+
     private static void startCycle(
         AusBlackMarketingExtras plugin,
         ConfigManager config,
