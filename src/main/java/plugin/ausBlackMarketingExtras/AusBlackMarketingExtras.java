@@ -36,7 +36,7 @@ public final class AusBlackMarketingExtras extends JavaPlugin {
     AusCycleLogger.info("ausBlackMarketingExtras enabled. Awaiting AxDarkAuctions...");
 
     getServer().getPluginManager().registerEvents(
-        new CommandInterceptListener(stateRepository, configManager), this
+        new CommandInterceptListener(this, stateRepository, configManager, resumeHandler), this
     );
     getServer().getPluginManager().registerEvents(
         new DarkAuctionsLoadListener(this, configManager, resumeHandler), this

@@ -47,6 +47,19 @@ public final class AuctionHandler {
     }
 
     public static void startCycle(AusBlackMarketingExtras plugin, ConfigManager config, CycleConfig cycle) {
+        startCycle(plugin, config, cycle, false);
+    }
+
+    public static void startCycleForRestore(AusBlackMarketingExtras plugin, ConfigManager config, CycleConfig cycle) {
+        startCycle(plugin, config, cycle, true);
+    }
+
+    private static void startCycle(
+        AusBlackMarketingExtras plugin,
+        ConfigManager config,
+        CycleConfig cycle,
+        boolean forceRestartRunningAuctions
+    ) {
         AusCycleLogger.info("=== START cycle " + cycle.id()
             + " (day " + cycle.startDay() + " → " + cycle.endDay() + ") ===");
 
@@ -80,8 +93,12 @@ public final class AuctionHandler {
                 continue;
             }
             if (auction.isRunning()) {
-                AusCycleLogger.warn("Auction '" + entry.name() + "' is already running. Skipping.");
-                continue;
+                if (!forceRestartRunningAuctions) {
+                    AusCycleLogger.warn("Auction '" + entry.name() + "' is already running. Skipping.");
+                    continue;
+                }
+                AusCycleLogger.warn("Auction '" + entry.name() + "' is already running during restore. Forcing restart.");
+                auction.stop();
             }
             NpcHandler.spawn(entry.npcId(), cycleLoc);
             auction.start();
@@ -136,15 +153,10 @@ public final class AuctionHandler {
             return;
         }
         List<CycleSnapshot> snapshots = new ArrayList<>();
-        for (Integer cycleId : periodicSaveTasks.keySet()) {
-            config.getCycles().stream()
-                .filter(c -> c.id() == cycleId)
-                .findFirst()
-                .ifPresent(cycle -> {
-                    for (AuctionEntry entry : cycle.auctions()) {
-                        AuctionStateCapture.capture(cycleId, entry.name()).ifPresent(snapshots::add);
-                    }
-                });
+        for (CycleConfig cycle : config.getCycles()) {
+            for (AuctionEntry entry : cycle.auctions()) {
+                AuctionStateCapture.capture(cycle.id(), entry.name()).ifPresent(snapshots::add);
+            }
         }
         if (!snapshots.isEmpty()) {
             stateRepository.save(snapshots);
