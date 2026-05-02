@@ -22,15 +22,44 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
+import plugin.ausBlackMarketingExtras.model.CycleSnapshot;
+import plugin.ausBlackMarketingExtras.persistence.AuctionStateCapture;
+import plugin.ausBlackMarketingExtras.persistence.CycleStateRepository;
+import plugin.ausBlackMarketingExtras.schedule.PeriodicSaveTask;
+
 import java.io.File;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.bukkit.scheduler.BukkitTask;
 
 public final class AuctionHandler {
 
+    private static final Map<Integer, BukkitTask> periodicSaveTasks = new HashMap<>();
+    private static CycleStateRepository stateRepository;
+
     private AuctionHandler() {}
 
+    public static void init(CycleStateRepository repo) {
+        stateRepository = repo;
+    }
+
     public static void startCycle(AusBlackMarketingExtras plugin, ConfigManager config, CycleConfig cycle) {
+        startCycle(plugin, config, cycle, false);
+    }
+
+    public static void startCycleForRestore(AusBlackMarketingExtras plugin, ConfigManager config, CycleConfig cycle) {
+        startCycle(plugin, config, cycle, true);
+    }
+
+    private static void startCycle(
+        AusBlackMarketingExtras plugin,
+        ConfigManager config,
+        CycleConfig cycle,
+        boolean forceRestartRunningAuctions
+    ) {
         AusCycleLogger.info("=== START cycle " + cycle.id()
             + " (day " + cycle.startDay() + " → " + cycle.endDay() + ") ===");
 
@@ -64,8 +93,12 @@ public final class AuctionHandler {
                 continue;
             }
             if (auction.isRunning()) {
-                AusCycleLogger.warn("Auction '" + entry.name() + "' is already running. Skipping.");
-                continue;
+                if (!forceRestartRunningAuctions) {
+                    AusCycleLogger.warn("Auction '" + entry.name() + "' is already running. Skipping.");
+                    continue;
+                }
+                AusCycleLogger.warn("Auction '" + entry.name() + "' is already running during restore. Forcing restart.");
+                auction.stop();
             }
             NpcHandler.spawn(entry.npcId(), cycleLoc);
             auction.start();
@@ -87,11 +120,59 @@ public final class AuctionHandler {
             broadcastTitleAndSound(config, config.getBroadcastStartTitle(), config.getBroadcastStartSubtitle());
         }
 
+        // Persist initial state and start periodic save
+        if (stateRepository != null) {
+            List<CycleSnapshot> initialSnapshots = new ArrayList<>();
+            for (AuctionEntry entry : cycle.auctions()) {
+                AuctionStateCapture.capture(cycle.id(), entry.name()).ifPresent(initialSnapshots::add);
+            }
+            if (!initialSnapshots.isEmpty()) {
+                stateRepository.save(initialSnapshots);
+            }
+
+            BukkitTask existing = periodicSaveTasks.remove(cycle.id());
+            if (existing != null) {
+                existing.cancel();
+            }
+            BukkitTask saveTask = new PeriodicSaveTask(cycle.id(), cycle.auctions(), stateRepository)
+                .runTaskTimerAsynchronously(plugin, 600L, 600L);
+            periodicSaveTasks.put(cycle.id(), saveTask);
+        }
+
         AusCycleLogger.info("=== Cycle " + cycle.id() + " start complete. ===");
+    }
+
+    /**
+     * Captures and persists the current state of all active cycles immediately.
+     * Used on disable/reload so that state is not lost between JVM shutdowns.
+     *
+     * @param config config manager used to look up cycle auction lists
+     */
+    public static void saveAllActiveCycles(ConfigManager config) {
+        if (stateRepository == null) {
+            return;
+        }
+        List<CycleSnapshot> snapshots = new ArrayList<>();
+        for (CycleConfig cycle : config.getCycles()) {
+            for (AuctionEntry entry : cycle.auctions()) {
+                AuctionStateCapture.capture(cycle.id(), entry.name()).ifPresent(snapshots::add);
+            }
+        }
+        if (!snapshots.isEmpty()) {
+            stateRepository.save(snapshots);
+            AusCycleLogger.info("[RESUME] saveAllActiveCycles: persisted " + snapshots.size()
+                + " snapshot(s) before shutdown/reload.");
+        }
     }
 
     public static void stopCycle(AusBlackMarketingExtras plugin, ConfigManager config, CycleConfig cycle) {
         AusCycleLogger.info("=== STOP cycle " + cycle.id() + " (day " + cycle.endDay() + ") ===");
+
+        // Cancel periodic save task for this cycle
+        BukkitTask saveTask = periodicSaveTasks.remove(cycle.id());
+        if (saveTask != null) {
+            saveTask.cancel();
+        }
 
         World world = Bukkit.getWorld(cycle.world());
         if (world == null) {
@@ -115,6 +196,11 @@ public final class AuctionHandler {
 
         if (cycle.hologram() != null) {
             HologramHandler.hide(cycle.hologram());
+        }
+
+        // Remove persisted state for this cycle since it ended cleanly
+        if (stateRepository != null) {
+            stateRepository.remove(cycle.id());
         }
 
         File backupFile = new File(plugin.getDataFolder(), "schematics/backups/backup_" + cycle.id() + ".schem");
