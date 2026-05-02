@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1](https://github.com/austv-minecraft/ausBlackMarketExtras/compare/v1.5.0...v1.5.1) (2026-05-02)
+
+
+### Bug Fixes
+
+* **resume:** preserve running auctions on /axda reload restore ([84dcb2f](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/84dcb2f804daa0ec6364492850a83e035b6fdb44))
+* **resume:** skip date-range check for fresh state (&lt; 30 min) ([b06868d](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/b06868d5a7336fd3ac117636fade41e72d95df78))
+
 ## [1.5.0](https://github.com/austv-minecraft/ausBlackMarketExtras/compare/v1.4.0...v1.5.0) (2026-05-02)
 
 
