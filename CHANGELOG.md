@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.4.0](https://github.com/austv-minecraft/ausBlackMarketExtras/compare/v1.3.0...v1.4.0) (2026-05-02)
+
+
+### Features
+
+* **cycle:** add building removal and DecentHolograms hologram on cycle start/end ([95a5183](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/95a51833be43be9c648684edb18362457c7d49d5))
+* **cycle:** building removal + DecentHolograms hologram on cycle start/end ([198513a](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/198513ae60acaa36771525b1bb3db9f9b5e3e2ba))
+* **resume:** add AuctionResumeHandler ([73badea](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/73badea42bd6cece9413f1b70920eedbfeb9f370))
+* **resume:** add AuctionStateCapture ([66ba17f](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/66ba17f6faba4c020714280532e4792942c3d20e))
+* **resume:** add CommandInterceptListener for /axda reload ([e4ae9ad](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/e4ae9ad3c04bb345ac3c683797fa0a7cb663f767))
+* **resume:** add CycleSnapshot record ([929bcd5](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/929bcd502d53d194e7f8617d8746b9772138a0a7))
+* **resume:** add CycleStateRepository ([b7a3651](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/b7a365197f0659c8fbe07225d9cc6d06dedc549c))
+* **resume:** add PeriodicSaveTask ([4f43384](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/4f43384fae15b20a072dd3a26c54146091abbf60))
+* **resume:** add resume clear/status subcommands ([45b5f56](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/45b5f56d907be94c84dc7084baf8433a68a30f90))
+* **resume:** auction state persistence & auto-resume ([12d72e2](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/12d72e29339d000b15b3d3226d162e26ab572ada))
+* **resume:** delegate to AuctionResumeHandler in load listener ([0fb515b](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/0fb515b041a0dfd251768976677d97c87b2561a9))
+* **resume:** hook state save into AuctionHandler ([6125747](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/6125747eff97118b217c120b5aacedf212ce3e66))
+* **resume:** wire all components in plugin lifecycle ([7b0cb9b](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/7b0cb9bc112d47d14d076ddd04200fe6c9db6567))
+
+
+### Bug Fixes
+
+* **resume:** add fallback restore after /axda reload + merge main ([41d0a79](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/41d0a792e497947b1f12f83aff03c61a8aea7aeb))
+* **resume:** address code review findings ([9c33eba](https://github.com/austv-minecraft/ausBlackMarketExtras/commit/9c33eba63fa45085d75ce8f96b28a9a715ebc223))
+
 ## [1.3.0](https://github.com/austv-minecraft/ausBlackMarketExtras/compare/v1.2.1...v1.3.0) (2026-04-29)
 
 
